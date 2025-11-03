@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Proxy for Gemini API calls via Netlify Function.",
   "main": "netlify/functions/gemini-chat.js",
+  "type": "commonjs",  <-- **ADD THIS LINE**
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -14,6 +15,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-   "@google/genai": "^0.15.0" 
+    "@google/genai": "^0.15.0"
   }
 }
