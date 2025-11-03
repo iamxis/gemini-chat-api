@@ -1,13 +1,20 @@
-// netlify/functions/gemini-chat.js (Final, robust CORS handling)
-const { GoogleGenAI } = require("@google/genai");
+// netlify/functions/gemini-chat.js (Using Dynamic Import for ES Module compatibility)
+
+// We no longer require the library here. It is loaded inside the handler.
 
 exports.handler = async (event) => {
+    // Dynamically import the GoogleGenAI class inside the handler function.
+    // This is the fix recommended by the error log (using dynamic import()).
+    const { GoogleGenAI } = await import("@google/genai"); 
+    
+    // Initialize the client securely (must be done after the import)
+    const ai = new GoogleGenAI({}); 
+
     // 🛑 1. HANDLE OPTIONS (CORS PRE-FLIGHT) FIRST 🛑
     if (event.httpMethod === "OPTIONS") {
         return {
             statusCode: 200,
             headers: {
-                // Must explicitly allow the methods and headers used by the POST request
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'POST, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type',
@@ -31,9 +38,6 @@ exports.handler = async (event) => {
     
     const userPrompt = requestBody.prompt;
 
-    // Initialize the client securely
-    const ai = new GoogleGenAI({}); 
-
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash", 
@@ -45,14 +49,14 @@ exports.handler = async (event) => {
             statusCode: 200,
             body: JSON.stringify({ response: response.text }),
             headers: {
-                // Allows your external website to call the function
                 'Access-Control-Allow-Origin': '*', 
             }
         };
     } catch (error) {
         console.error("Gemini API Error:", error);
-        // Return a 403 or 400 error status if the API key is wrong or the request body is bad
-        const status = (error.message.includes('API key') || error.message.includes('permission')) ? 403 : 500;
+        
+        // Return a detailed error if the API call fails
+        const status = (error.message && (error.message.includes('API key') || error.message.includes('permission'))) ? 403 : 500;
         
         return {
             statusCode: status,
