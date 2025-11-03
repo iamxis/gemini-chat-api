@@ -81,6 +81,9 @@ exports.handler = async (event) => {
         contextToInject = await fetchContextFromUrl("https://iamxis.com.ng/shipping/"); 
     } 
     // Add more conditions here for "FAQ", "sizing", etc.
+ 
+    // After the RAG Logic block where contextToInject is set:
+    console.log("Fetched Context for Gemini:", contextToInject); // <-- ADD THIS LINE
 
     // 🛑 Construct the FINAL Prompt 🛑
     let finalPrompt = userPrompt;
