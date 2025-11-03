@@ -4,8 +4,10 @@ exports.handler = async (event) => {
     // 1. Dynamic Import (Must be first)
     const { GoogleGenAI } = await import("@google/genai"); 
     
-    // 🛑 TEMPORARY: PASTE YOUR RAW API KEY HERE 🛑
-    const TEMPORARY_API_KEY = "AIzaSyCEd7k0YH2JC5__YK_tWCDdQvREEsufOUg"; 
+    // Use the variable that is set in your Netlify dashboard
+    const ai = new GoogleGenAI({ 
+    apiKey: process.env.GOOGLE_API_KEY // or GEMINI_API_KEY
+  });
     
     // 2. Initialize the client
     const ai = new GoogleGenAI({ 
