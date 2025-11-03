@@ -184,7 +184,7 @@ contextToInject = await fetchContextFromUrl("https://iamxis.com.ng/ai-knowledge-
 
 // ADDED DEBUG LINE: Now includes the fix for better error tracing
 
-console.log("Fetched Context for Gemini:", contextToInject); 
+console.log("Fetched Context for BluAI:", contextToInject); 
 
 
 
