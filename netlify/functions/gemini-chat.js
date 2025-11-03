@@ -9,10 +9,10 @@ exports.handler = async (event) => {
     apiKey: process.env.GEMINI_API_KEY // or GEMINI_API_KEY
   });
     
-    // 2. Initialize the client
-    const ai = new GoogleGenAI({ 
-        apiKey: TEMPORARY_API_KEY 
-    }); 
+    // // 2. Initialize the client
+    // const ai = new GoogleGenAI({ 
+    //     apiKey: TEMPORARY_API_KEY 
+    // }); 
     
     // 3. HANDLE OPTIONS (CORS PRE-FLIGHT)
     if (event.httpMethod === "OPTIONS") {
