@@ -8,7 +8,11 @@ exports.handler = async (event) => {
     const { GoogleGenAI } = await import("@google/genai"); 
     
     // Initialize the client securely (must be done after the import)
-    const ai = new GoogleGenAI({}); 
+    // Initialize the client securely
+   // 🛑 FIX: Explicitly read the key from Netlify's environment variable (process.env)
+   const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY 
+   });
 
     // 🛑 1. HANDLE OPTIONS (CORS PRE-FLIGHT) FIRST 🛑
     if (event.httpMethod === "OPTIONS") {
