@@ -1,16 +1,28 @@
-// Function uses the official Google GenAI SDK (Node.js/JavaScript)
-import { GoogleGenAI } from "@google/genai";
+// Use 'require' syntax for wider compatibility in serverless environments
+const { GoogleGenAI } = require("@google/genai");
 
-
-// This is the standard entry point for Netlify Functions
-export const handler = async (event) => {
-    // 1. Check if the request is a POST
+// This is the standard entry point for Netlify Functions (CommonJS export)
+exports.handler = async (event) => {
+    // 1. Check if the request is a POST (or the OPTIONS pre-flight)
+    if (event.httpMethod === "OPTIONS") {
+        // Explicitly allow the pre-flight check for CORS
+        return {
+            statusCode: 200,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+            },
+            body: ''
+        };
+    }
+    
+    // We only process the body for POST requests
     if (event.httpMethod !== "POST") {
         return { statusCode: 405, body: "Method Not Allowed" };
     }
 
-
-    // 2. Safely parse the JSON body sent from your chat widget
+    // Safely parse the JSON body
     let requestBody;
     try {
         requestBody = JSON.parse(event.body);
@@ -20,26 +32,21 @@ export const handler = async (event) => {
     
     const userPrompt = requestBody.prompt;
 
-
-    // 3. Initialize the client securely
-    // It automatically reads the GEMINI_API_KEY from Netlify's environment variables
-    // Use gemini-1.0-pro as it's highly stable.
+    // Initialize the client securely
     const ai = new GoogleGenAI({}); 
-
 
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.5-flash", 
             contents: userPrompt,
         });
 
-
-        // 4. Return the AI's response
+        // Return the AI's response
         return {
             statusCode: 200,
             body: JSON.stringify({ response: response.text }),
             headers: {
-                // Allows your external website to call this function
+                // Allows your external website to call the function
                 'Access-Control-Allow-Origin': '*', 
             }
         };
