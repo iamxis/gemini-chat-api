@@ -156,21 +156,11 @@ exports.handler = async (event) => {
 
     
 
-    // 🛑 RAG LOGIC: Check User Intent and Define Context URL 🛑
-
-    // URLs are set to your provided links
-
-    if (userPrompt.toLowerCase().includes("return") || userPrompt.toLowerCase().includes("refund")) {
-
-        contextToInject = await fetchContextFromUrl("https://iamxis.com.ng/returns/"); 
-
-    } else if (userPrompt.toLowerCase().includes("shipping") || userPrompt.toLowerCase().includes("delivery")) {
-
-        contextToInject = await fetchContextFromUrl("https://iamxis.com.ng/shipping/"); 
-
-    } 
-
-    // Add more conditions here for "FAQ", "sizing", etc.
+    // 🛑 CRITICAL FUNCTIONAL CHANGE: UNIFIED RAG STRATEGY 🛑
+    // The previous conditional RAG logic (checking for "return" or "shipping") is replaced.
+    // We now fetch the entire centralized knowledge base every time.
+    // NOTE: Replace this placeholder URL with the actual link to your dedicated AI knowledge page.
+    contextToInject = await fetchContextFromUrl("https://iamxis.com.ng/ai-knowledge-base/");
 
 
 
@@ -180,32 +170,19 @@ exports.handler = async (event) => {
 
 
 
-    // 🛑 Construct the FINAL Prompt 🛑
-
+    // 🛑 Construct the FINAL Prompt (Using the unified strategy) 🛑
     let finalPrompt = userPrompt;
 
-
-
     if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
-
         // Embed the fetched content into the prompt ONLY if retrieval was successful
-
         finalPrompt = `
-
         [START KNOWLEDGE BASE FROM SITE]
-
         ${contextToInject}
-
         [END KNOWLEDGE BASE]
-
         
-
-        Based ONLY on the CONTEXT provided above and your general knowledge about e-commerce, answer the user's question concisely.
-
+        Based ONLY on your CORE KNOWLEDGE (in your persona) AND the KNOWLEDGE BASE provided above, answer the user's question. Strictly adhere to all rules, especially the Forbidden Knowledge command.
         User Question: ${userPrompt}
-
         `;
-
     }
 
     
@@ -236,7 +213,7 @@ Tone & Goals: Maintain a professional, friendly, helpful, aspirational, and conc
 6.  **Deflection:** NEVER tell the user to "visit the page" unless the answer is already provided in the knowledge and they request the direct source link.
 7.  **Out of Scope/Fabrication:** If the exact answer is missing from both the CORE KNOWLEDGE and the [KNOWLEDGE BASE], politely and clearly state: "I don't have that specific detail
 available right now based on my current information. Please reach out to our human support team for the most up-to-date details." You must not attempt to guess or infer information.
-8.  **Output Formatting:** **DO NOT** use any Markdown or special characters for formatting (e.g., avoid **bolding**).
+8.  **Output Formatting:** DO NOT use any Markdown or special characters for formatting (e.g., avoid bolding).
 `;
 
 
@@ -287,7 +264,7 @@ available right now based on my current information. Please reach out to our hum
 
         // ERROR RESPONSE
 
-        console.error("Gemini API Error:", error);
+        console.error("IAX BluAI Error:", error);
 
         
 
