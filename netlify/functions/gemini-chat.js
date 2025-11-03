@@ -1,13 +1,13 @@
-// netlify/functions/gemini-chat.js (Final Version with Cheerio RAG)
+// netlify/functions/gemini-chat.js (Final Standardized Imports with Cheerio RAG)
 
-const cheerio = require('cheerio'); // 🛑 NEW: REQUIRE CHEERIO HERE 🛑
-const { GoogleGenAI } = require("@google/genai"); // Assuming @google/genai is still imported somehow
+// 🛑 STANDARD IMPORTS AT TOP OF FILE 🛑
+const cheerio = require('cheerio'); 
+const { GoogleGenAI } = require("@google/genai"); 
 
 
 // --- RAG HELPER FUNCTION ---
 async function fetchContextFromUrl(url) {
     try {
-        // FIX: Added User-Agent header to bypass potential 503 firewalls/security checks
         const response = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -24,15 +24,13 @@ async function fetchContextFromUrl(url) {
         // 🛑 CHEERIO IMPLEMENTATION 🛑
         const $ = cheerio.load(rawHtml);
         
-        // CRITICAL: REPLACE '#main-policy-content' with the actual ID or class 
-        // of the container that holds your policy text on iamxis.com.ng!
+        // CRITICAL: You are using the selector '#7996'. Make SURE this is the 
+        // correct HTML element ID for the content you want to retrieve.
         const policyContainer = $('#7996'); 
 
-        // Extract text and clean up whitespace
         let cleanText = policyContainer.text();
         cleanText = cleanText.replace(/\s\s+/g, ' ').trim();
         
-        // Truncate content 
         const MAX_CONTEXT_LENGTH = 5000;
         cleanText = cleanText.substring(0, MAX_CONTEXT_LENGTH);
         
@@ -47,10 +45,7 @@ async function fetchContextFromUrl(url) {
 
 
 exports.handler = async (event) => {
-    // 1. Dynamic Import - Retaining for module compatibility
-    const { GoogleGenAI } = await import("@google/genai"); 
-    
-    // 2. Initialize the client securely
+    // 1. Initialize the client securely (Now outside the dynamic import block)
     const ai = new GoogleGenAI({ 
         apiKey: process.env.GEMINI_API_KEY 
     });
@@ -94,7 +89,7 @@ exports.handler = async (event) => {
     } 
 
     // ADDED DEBUG LINE
-    console.log("Fetched Context for Gemini (Cheerio Applied):", contextToInject); 
+    console.log("Fetched Context for Gemini:", contextToInject); 
 
     // 🛑 Construct the FINAL Prompt 🛑
     let finalPrompt = userPrompt;
