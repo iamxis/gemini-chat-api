@@ -14,6 +14,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google/genai": "^0.16.0"
+    // 🛑 CHANGE THIS LINE: 0.16.0 is not found. Use 0.15.0 instead.
+    "@google/genai": "^0.15.0" 
   }
 }
