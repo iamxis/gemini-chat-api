@@ -10,9 +10,9 @@ exports.handler = async (event) => {
     // Initialize the client securely (must be done after the import)
     // Initialize the client securely
    // 🛑 FIX: Explicitly read the key from Netlify's environment variable (process.env)
-   const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY 
-   });
+   // ...
+   // The SDK automatically looks for the GOOGLE_API_KEY in the environment
+   const ai = new GoogleGenAI({}); 
 
     // 🛑 1. HANDLE OPTIONS (CORS PRE-FLIGHT) FIRST 🛑
     if (event.httpMethod === "OPTIONS") {
