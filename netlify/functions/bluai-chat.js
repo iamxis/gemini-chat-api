@@ -253,66 +253,64 @@ How can I help?"
 
 
 
-// 6. API Call Logic
+// 6. API Call Logic (Streaming Implementation)
 
-try { 
+try {
+    // 🛑 CRITICAL CHANGE: Use generateContentStream() 🛑
+    const responseStream = await ai.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: finalPrompt,
+        config: {
+            systemInstruction: brandPersona,
+        },
+    });
 
-const response = await ai.models.generateContent({
-
-model: "gemini-2.5-flash", 
-
-// Use the augmented prompt
-
-contents: finalPrompt,
-
-config: {
-
-// Set the fixed persona and rules
-
-systemInstruction: brandPersona, 
-
-},
-
-});
-
-
-
-// SUCCESS RESPONSE
-
-return {
-
-statusCode: 200,
-
-body: JSON.stringify({ response: response.text }),
-
-headers: {
-
-'Access-Control-Allow-Origin': '*', 
-
-}
-
-};
-
+    // 🛑 NEW: Set Headers for Streaming 🛑
+    return {
+        statusCode: 200,
+        // MUST set content type to plain text for streaming chunks
+        headers: {
+            'Content-Type': 'text/plain',
+            'Access-Control-Allow-Origin': '*',
+            // Required for streaming responses to function correctly
+            'Transfer-Encoding': 'chunked', 
+        },
+        // The body must now be a readable stream (provided by Netlify)
+        isBase64Encoded: false,
+        
+        // This function will be called by Netlify to pipe the stream
+        body: (async function* () {
+            try {
+                // Loop through each chunk of the AI response as it arrives
+                for await (const chunk of responseStream) {
+                    const textChunk = chunk.text;
+                    if (textChunk && textChunk.length > 0) {
+                        // Yield (send) the text chunk immediately
+                        yield textChunk;
+                    }
+                }
+            } catch (e) {
+                // Log and yield a final error message if streaming fails mid-way
+                console.error("Streaming error inside generator:", e);
+                yield " [AI Streaming Error: Please try again.]";
+            }
+        })(),
+    };
+    
 } catch (error) {
+    // ERROR RESPONSE (Kept from old logic)
+    console.error("IAX BluAI Error:", error);
 
-// ERROR RESPONSE
+    const status = (error.message && (error.message.includes('API key') || error.message.includes('permission'))) ? 403 : 500;
 
-console.error("IAX BluAI Error:", error);
-
-
-
-const status = (error.message && (error.message.includes('API key') || error.message.includes('permission'))) ? 403 : 500;
-
-
-
-return {
-
-statusCode: status,
-
-body: JSON.stringify({ error: `AI Service Error (Code ${status}): ${error.message}` }),
-
-};
-
+    return {
+        statusCode: status,
+        body: JSON.stringify({ error: `AI Service Error (Code ${status}): ${error.message}` }),
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json', // Error message is standard JSON
+        }
+    };
 }
 
-};
+// NOTE: The separate "Trivial Prompt Check" remains above this, untouched.
