@@ -158,15 +158,15 @@ lowerPrompt === 'thank you' ||
 lowerPrompt === 'bye' ||
 lowerPrompt === 'goodbye') {
 
-// Respond immediately with a friendly closing message without calling the AI
+// --- Replace the Trivial Prompt Return ---
 return {
-statusCode: 200,
-body: JSON.stringify({ response: "You're very welcome! Feel free to reach out if you have any other questions. Have a great day!" }),
-headers: {
-'Access-Control-Allow-Origin': '*', 
-}
+    statusCode: 200,
+    headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json', // <--- ADD THIS
+    },
+    body: JSON.stringify({ response: "You're very welcome! Feel free to reach out if you have any other questions. Have a great day!" }),
 };
-}
 
 // --- BRAND TRAINING LOGIC ---
 
@@ -194,13 +194,13 @@ let finalPrompt = userPrompt;
 if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
 // Embed the fetched content into the prompt ONLY if retrieval was successful
 finalPrompt = `
-       [START KNOWLEDGE BASE FROM SITE]
-       ${contextToInject}
-       [END KNOWLEDGE BASE]
-       
-       Based ONLY on your CORE KNOWLEDGE (in your persona) AND the KNOWLEDGE BASE provided above, answer the user's question. Strictly adhere to all rules, especially the Forbidden Knowledge command.
-       User Question: ${userPrompt}
-       `;
+      [START KNOWLEDGE BASE FROM SITE]
+      ${contextToInject}
+      [END KNOWLEDGE BASE]
+      
+      Based ONLY on your CORE KNOWLEDGE (in your persona) AND the KNOWLEDGE BASE provided above, answer the user's question. Strictly adhere to all rules, especially the Forbidden Knowledge command.
+      User Question: ${userPrompt}
+      `;
 }
 
 
@@ -228,13 +228,14 @@ Tone & Goals: Maintain a professional, friendly, helpful, aspirational, **human*
 3.  **Sourcing Hierarchy:** Use the CORE KNOWLEDGE first (for identity and basic facts). Use the [KNOWLEDGE BASE] for specific policy details, complex FAQs, or exceptions.
 4.  **Conciseness:** Provide the shortest, most helpful answer possible. Do not provide a list of policies unless asked for them.
 5.  **Made-to-Order:** **Proactively remind the user that items are made-to-order** when:
-   a) The user asks about **production, shipping, delivery, or cancellation times** for the first time in the current interaction.
-   b) The answer to the user's question directly relates to a **unique challenge** of made-to-order items (e.g., returns or personalization changes).
-   c) **AVOID** repeating this fact in subsequent, related messages unless the user clearly misunderstands the timeline.
+  a) The user asks about **production, shipping, delivery, or cancellation times** for the first time in the current interaction.
+  b) The answer to the user's question directly relates to a **unique challenge** of made-to-order items (e.g., returns or personalization changes).
+  c) **AVOID** repeating this fact in subsequent, related messages unless the user clearly misunderstands the timeline.
 6.  **Deflection:** NEVER tell the user to "visit the page" unless the answer is already provided in the knowledge and they request the direct source link.
 7.  **Out of Scope/Fabrication:** If the exact answer is missing from both the CORE KNOWLEDGE and the [KNOWLEDGE BASE], politely and clearly state: "I don't have that specific detail
 available right now based on my current information. Please reach out to our human support team for the most up-to-date details." You must not attempt to guess or infer information.
 8.  **Output Formatting:** DO NOT use any Markdown or special characters for formatting (e.g., avoid bolding).
+9. **No Greetings:** **DO NOT** begin your response with "Hello," "Hi," "Welcome," or any similar greeting. Jump straight to answering the user's question.
 // 9. **No Greetings:** **DO NOT** begin your response with "Hello," "Hi," "Welcome," or any similar greeting. Jump straight to answering the user's question.
 10. Future/Hypotheticals: If a user asks about future products, services, or unreleased policies, state that your information is current based on what is available now, and redirect focus to the current product line.
 11. User Frustration: If the user rephrases a question you have already clearly answered, provide the answer one last time and immediately suggest contacting human support. Do not repeat the answer a second time.
@@ -277,23 +278,15 @@ systemInstruction: brandPersona,
 
 
 
-// SUCCESS RESPONSE
-
+// --- Replace the AI Call SUCCESS RESPONSE Return ---
 return {
-
-statusCode: 200,
-
-body: JSON.stringify({ response: response.text }),
-
-headers: {
-
-'Access-Control-Allow-Origin': '*', 
-
-}
-
+    statusCode: 200,
+    headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json', // <--- ADD THIS
+    },
+    body: JSON.stringify({ response: response.text }),
 };
-
-} catch (error) {
 
 // ERROR RESPONSE
 
