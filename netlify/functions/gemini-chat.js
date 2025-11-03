@@ -6,7 +6,7 @@ exports.handler = async (event) => {
     
     // Use the variable that is set in your Netlify dashboard
     const ai = new GoogleGenAI({ 
-    apiKey: process.env.GOOGLE_API_KEY // or GEMINI_API_KEY
+    apiKey: process.env.GEMINI_API_KEY // or GEMINI_API_KEY
   });
     
     // 2. Initialize the client
