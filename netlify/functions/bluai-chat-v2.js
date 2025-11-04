@@ -180,7 +180,7 @@ let contextToInject = "";
 // The previous conditional RAG logic (checking for "return" or "shipping") is replaced.
 // We now fetch the entire centralized knowledge base every time.
 // NOTE: Replace this placeholder URL with the actual link to your dedicated AI knowledge page.
-contextToInject = await fetchContextFromUrl("https://iamxis.com.ng/ai-knowledge-base/");
+contextToInject = await fetchContextFromUrl("https://bluaiknowledgev2.netlify.app/");
 
 
 
