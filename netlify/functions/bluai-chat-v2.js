@@ -1,150 +1,75 @@
-// netlify/functions/bluai-chat.js (Final Version with RAG and User-Agent Fix)
+// netlify/functions/bluai-chat.js (Final Version with Local RAG)
 
+// ===========================================
+//  <--- PLACE IMPORTS HERE (VERY TOP) --->
+// ===========================================
+const fs = require('fs');
+const path = require('path');
 
+// --- RAG HELPER FUNCTION (NEW LOCAL READ) ---
 
-// --- RAG HELPER FUNCTION ---
+// Define the path to the local file
+const KNOWLEDGE_FILE_PATH = path.resolve(__dirname, 'bluai-knowledge.txt'); // <--- USING YOUR CUSTOM FILENAME
 
-async function fetchContextFromUrl(url) {
+/**
+ * Reads context from a local file, making RAG nearly instantaneous and highly reliable.
+ * @returns {Promise<string>} The context content or an error string.
+ */
+async function fetchContextFromUrl() {
+    try {
+        // Read the file content synchronously (fast local disk I/O)
+        const fileContent = fs.readFileSync(KNOWLEDGE_FILE_PATH, 'utf8');
 
-try {
+        // Truncate content to avoid exceeding Gemini's token limit (5000 chars is safe)
+        const MAX_CONTEXT_LENGTH = 5000;
+        let cleanText = fileContent.substring(0, MAX_CONTEXT_LENGTH);
 
-// 🛑 FIX: Added User-Agent header to bypass potential 503 firewalls/security checks
+        return cleanText.trim();
 
-const response = await fetch(url, {
-
-headers: {
-
-'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-
-}
-
-}); 
-
-
-
-if (response.status !== 200) {
-
-// Updated error message to be more specific for debugging
-
-console.error(`Failed to fetch ${url}. Status: ${response.status}`);
-
-return `[Content Retrieval Error: Server returned status ${response.status}.]`;
-
-}
-
-
-
-const rawHtml = await response.text();
-
-
-
-// --- Crude HTML Cleanup (for simplicity) ---
-
-let cleanText = rawHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-
-.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-
-.replace(/<[^>]*>/g, '');
-
-
-
-// Truncate content to avoid exceeding Gemini's token limit
-
-const MAX_CONTEXT_LENGTH = 5000;
-
-cleanText = cleanText.substring(0, MAX_CONTEXT_LENGTH);
-
-
-
-return cleanText.trim();
-
-
-
-} catch (e) {
-
-console.error("Context fetch error:", e);
-
-return "[Content Retrieval Error: Network issue (e.g., DNS or Timeout).]";
-
-}
-
+    } catch (e) {
+        console.error("Context file read error:", e);
+        // Returns a safe error message to the AI, preventing a full function crash
+        return "[Content Retrieval Error: Local file 'bluai-knowledge.txt' failed to read.]";
+    }
 }
 
 // --- END HELPER FUNCTION ---
 
-
-
-
-
 exports.handler = async (event) => {
 
 // 1. Dynamic Import
-
-const { GoogleGenAI } = await import("@google/genai"); 
-
-
+const { GoogleGenAI } = await import("@google/genai"); 
 
 // 2. Initialize the client securely
-
-const ai = new GoogleGenAI({ 
-
-apiKey: process.env.GEMINI_API_KEY 
-
+const ai = new GoogleGenAI({ 
+apiKey: process.env.GEMINI_API_KEY 
 });
 
-
-
 // 3. HANDLE OPTIONS (CORS Pre-Flight Check)
-
 if (event.httpMethod === "OPTIONS") {
-
 return {
-
 statusCode: 200,
-
 headers: {
-
 'Access-Control-Allow-Origin': '*',
-
 'Access-Control-Allow-Methods': 'POST, OPTIONS',
-
 'Access-Control-Allow-Headers': 'Content-Type',
-
 },
-
 body: ''
-
 };
-
 }
-
-
 
 // 4. Handle non-POST methods
-
 if (event.httpMethod !== "POST") {
-
 return { statusCode: 405, body: "Method Not Allowed" };
-
 }
-
-
 
 // 5. Parse Request Body
-
 let requestBody;
-
 try {
-
 requestBody = JSON.parse(event.body);
-
 } catch (e) {
-
 return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON format" }) };
-
 }
-
-
 
 const userPrompt = requestBody.prompt;
 
@@ -152,8 +77,8 @@ const userPrompt = requestBody.prompt;
 // 🛑 NEW: Check for Trivial/Ending Prompts 🛑
 const lowerPrompt = userPrompt.toLowerCase();
 
-if (lowerPrompt === 'thanks' || 
-lowerPrompt === 'alright thanks' || 
+if (lowerPrompt === 'thanks' || 
+lowerPrompt === 'alright thanks' || 
 lowerPrompt === 'thank you' ||
 lowerPrompt === 'bye' ||
 lowerPrompt === 'goodbye') {
@@ -163,7 +88,7 @@ return {
 statusCode: 200,
 body: JSON.stringify({ response: "You're very welcome! Feel free to reach out if you have any other questions. Have a great day!" }),
 headers: {
-'Access-Control-Allow-Origin': '*', 
+'Access-Control-Allow-Origin': '*', 
 }
 };
 }
@@ -173,36 +98,14 @@ headers: {
 let contextToInject = "";
 
 
-
-// 🛑 CRITICAL FUNCTIONAL CHANGE: UNIFIED RAG STRATEGY 🛑
-// The previous conditional RAG logic (checking for "return" or "shipping") is replaced.
-// We now fetch the entire centralized knowledge base every time.
-// NOTE: Replace this placeholder URL with the actual link to your dedicated AI knowledge page.
-contextToInject = await fetchContextFromUrl("https://iamxis.com.ng/ai-knowledge-base/");
-
+// 🛑 CRITICAL FUNCTIONAL CHANGE: LOCAL RAG CALL 🛑
+// We now call the function without a URL, as it reads the local file.
+contextToInject = await fetchContextFromUrl(); 
 
 
 // ADDED DEBUG LINE: Now includes the fix for better error tracing
 
-console.log("Fetched Context for BluAI:", contextToInject); 
-
-
-
-// 🛑 Construct the FINAL Prompt (Using the unified strategy) 🛑
-let finalPrompt = userPrompt;
-
-if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
-// Embed the fetched content into the prompt ONLY if retrieval was successful
-finalPrompt = `
-       [START KNOWLEDGE BASE FROM SITE]
-       ${contextToInject}
-       [END KNOWLEDGE BASE]
-       
-       Based ONLY on your CORE KNOWLEDGE (in your persona) AND the KNOWLEDGE BASE provided above, answer the user's question. Strictly adhere to all rules, especially the Forbidden Knowledge command.
-       User Question: ${userPrompt}
-       `;
-}
-
+console.log("Fetched Context for BluAI:", contextToInject); 
 
 
 // 🛑 Set the System Instruction (Brand Persona) 🛑
@@ -241,25 +144,38 @@ available right now based on my current information. Please reach out to our hum
 12. Brand Focus: Always ensure the tone and facts align with the I AM XIS identity (design studio, personalized, made-to-order). Never answer a question using general e-commerce assumptions.
 13. Actionable Links: If providing a specific resource is the best answer, state the contact method and provide the full, plain URL or email address (e.g., "Our email is hello@iamxis.com.ng."). DO NOT use Markdown or HTML tags.
 14. Delivery Reinforcement: Crucially, when discussing shipping, delivery, or timelines, you must strongly reinforce that all delivery times are 3 to 5 business days. DO NOT say Deliveries within Lagos typically take 1–2 business days, while other states may take 3–5 business days.
-15. If the user's input is purely appreciative, acknowledges a previous response, serves as a simple greeting/farewell, or indicates simple receipt of information (including any similar appreciative words or phrases not explicitly listed—e.g., "Thank you," "Thanks," "Okay," "OK," "alright thanks," "hmm," "ooh," "gotcha," 
-"Great," "Awesome," "Got it," "Understood," "Perfect," "Cheers," "Much obliged," "Appreciate it," 
-"Will do," "Bye," "Goodbye," "I see," "roger that", etc.), and this input does not contain a clear, subsequent question, respond with the formal closure: 
+15. If the user's input is purely appreciative, acknowledges a previous response, serves as a simple greeting/farewell, or indicates simple receipt of information (including any similar appreciative words or phrases not explicitly listed—e.g., "Thank you," "Thanks," "Okay," "OK," "alright thanks," "hmm," "ooh," "gotcha," 
+"Great," "Awesome," "Got it," "Understood," "Perfect," "Cheers," "Much obliged," "Appreciate it," 
+"Will do," "Bye," "Goodbye," "I see," "roger that", etc.), and this input does not contain a clear, subsequent question, respond with the formal closure: 
 "Always happy to help. Let me know if you have any other questions." Do not elaborate or offer additional information.
 16. Rule 15: If the user's input consists only of a simple greeting (e.g., "Hello," "Hi," or similar), respond with the standard greeting or any similar warm phrases: "Hey.
 How can I help?". It is important
 `;
 
 
+// 🛑 Construct the FINAL Prompt (Using the unified strategy) 🛑
+let finalPrompt = userPrompt;
 
+if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
+// Embed the fetched content into the prompt ONLY if retrieval was successful
+finalPrompt = `
+       [START KNOWLEDGE BASE FROM SITE]
+       ${contextToInject}
+       [END KNOWLEDGE BASE]
+       
+       Based ONLY on your CORE KNOWLEDGE (in your persona) AND the KNOWLEDGE BASE provided above, answer the user's question. Strictly adhere to all rules, especially the Forbidden Knowledge command.
+       User Question: ${userPrompt}
+       `;
+}
 
 
 // 6. API Call Logic
 
-try { 
+try { 
 
 const response = await ai.models.generateContent({
 
-model: "gemini-2.5-flash", 
+model: "gemini-2.5-flash", 
 
 // Use the augmented prompt
 
@@ -269,12 +185,11 @@ config: {
 
 // Set the fixed persona and rules
 
-systemInstruction: brandPersona, 
+systemInstruction: brandPersona, 
 
 },
 
 });
-
 
 
 // SUCCESS RESPONSE
@@ -287,7 +202,7 @@ body: JSON.stringify({ response: response.text }),
 
 headers: {
 
-'Access-Control-Allow-Origin': '*', 
+'Access-Control-Allow-Origin': '*', 
 
 }
 
@@ -300,9 +215,7 @@ headers: {
 console.error("IAX BluAI Error:", error);
 
 
-
 const status = (error.message && (error.message.includes('API key') || error.message.includes('permission'))) ? 403 : 500;
-
 
 
 return {
