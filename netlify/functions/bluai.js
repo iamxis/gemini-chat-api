@@ -229,7 +229,7 @@ exports.handler = async (event) => {
     58. Return Condition (LITERAL): The exact phrasing for the only condition for a return is: **'The item must have arrived damaged.'**
     
     59. Return Form Link (LITERAL): The exact link and lead-in phrasing for the return form is: **'You can access the return form here: https://iamxis.com.ng/returns/.'**
-`;
+   `;
 
 
 // --- Start of NEW API Call Logic (REPLACEMENT) ---
