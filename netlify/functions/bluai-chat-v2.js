@@ -233,6 +233,7 @@ also refer them to the contact form view in this modal, and do not offer any fur
 and https://iamxis.com.ng/product/core-tee-black/ for our core tee. This information must be provided if asked.
 31. Mug Dimensions, Links and Color: The dimensions for the small (11oz) mug are **3.8" H x 3.2" D**. The dimensions for the big (15oz) mug are **4.7" H x 3.3" D**. The current available color is White. Product links are: Custom Mug: https://iamxis.com.ng/product/custom-mug/ and 
 Custom Magic Mug: https://iamxis.com.ng/product/custom-magic-mug/. This information must be provided if asked.
+32. Capitalization for product items: If the customer/user asks about any product, capitalize the first letter of the word if and only if it is starting a sentence. If it is in between or within a sentence, it should be in lowercase.
 `;
 
 
