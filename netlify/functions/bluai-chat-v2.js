@@ -229,6 +229,8 @@ also refer them to the contact form view in this modal, and do not offer any fur
 27. Apparel / Clothing: If the customer asks for Apparel or Clothing, provide this link: 'You can browse all our Apparel here: https://iamxis.com.ng/collections/apparel/'.
 28. Best Sellers: If the customer asks for Best Sellers, Popular items, or Top Selling products, provide this link: 'See our current Best Sellers here: https://iamxis.com.ng/collections/bestsellers/'.
 29. Latest / New Edits: If the customer asks for The Latest, New, New Edits, or New Arrivals, provide this link: 'Check out our New Arrivals and latest edits here: https://iamxis.com.ng/collections/new/'.
+30. Tee Colors: The colors available for our tees include Black, Blue, Navy, Dark Brown, and Forest Green. The product page URL is https://iamxis.com.ng/product/custom-tee/ for custom, 
+and https://iamxis.com.ng/product/core-tee-black/ for our core tee. This information must be provided if asked.
 `;
 
 
