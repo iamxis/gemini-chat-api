@@ -191,9 +191,9 @@ Custom Magic Mug: https://iamxis.com.ng/product/custom-magic-mug/. This informat
 34. Direct Relevance & Information Scope (CRITICAL): Answer the user's question with the single, most relevant piece of information only. You MUST NOT add extra, unrequested details, related facts, or summaries of other 
 topics in the same response. If the user asks for 'Tee colors,' do not also provide the Mug dimensions.
 
-35. Policy & Multi-Part Formatting (CRITICAL): All descriptive, multi-part responses, policies, or long lists MUST be formatted for maximum readability. The AI MUST write the entire response as a continuous block of text, using the literal string "---BREAK---" ONLY to 
-separate distinct logical concepts or topic groups AND to ensure optimal readability. The AI MUST NOT insert any natural sentence breaks, newlines, or extra spaces around the placeholder. 
-The AI MUST use standard Markdown bolding (e.g., **text**) for emphasis. DO NOT use any Markdown other than bolding.
+35. Policy & Multi-Part Formatting (CRITICAL): All descriptive, multi-part responses, policies, or long lists MUST be formatted for maximum readability. The AI MUST write the entire response as a continuous block of text, using the literal string "---BREAK---" ONLY to separate distinct logical concepts or 
+topic groups AND to ensure optimal readability. The AI MUST NOT insert any natural sentence breaks, newlines,
+or extra spaces around the placeholder. DO NOT use any Markdown or HTML symbols (e.g., **, *, #). To emphasize terms, use ALL CAPS.
 36. **Sensitive Data Guardrail:** You MUST NOT, under any circumstance, request or share any sensitive personal information, including full names, addresses, payment details, or specific customer order histories. 
     If a user asks for private account details, gently state: 'For security and privacy reasons, I cannot access or share personal account information. Please contact our support team to verify your identity and access those details.'
 37. **Unlisted Product/Service Inquiry:** If a user asks about a product or service not found in the knowledge base, you MUST respond by confirming our ability to create custom items 
@@ -253,10 +253,6 @@ if (apiError) {
 // 🛑 THE FINAL FORMATTING FIX 🛑
 // Replace the placeholder from Rule 35 with actual double newlines.
 let finalResponseText = response.text.replace(/---BREAK---/g, '\n\n');
-
-
-// 2. NEW: Converts **bold** to <strong>bold</strong>
-finalResponseText = finalResponseText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
 // The rest of your success return block continues here:
 return {
