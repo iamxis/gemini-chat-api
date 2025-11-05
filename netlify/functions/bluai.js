@@ -1,5 +1,9 @@
 // netlify/functions/bluai-chat.js (Final Version with RAG and User-Agent Fix)
 
+
+
+
+
 // --- RAG HELPER FUNCTION ---
 async function fetchContextFromUrl(url) {
     try {
@@ -34,89 +38,141 @@ async function fetchContextFromUrl(url) {
 // --- END HELPER FUNCTION ---
 
 
+
+
+
 exports.handler = async (event) => {
 
-    // 1. Dynamic Import
-    const { GoogleGenAI } = await import("@google/genai"); 
+// 1. Dynamic Import
 
-    // 2. Initialize the client securely
-    const ai = new GoogleGenAI({ 
-        apiKey: process.env.GEMINI_API_KEY 
-    });
+const { GoogleGenAI } = await import("@google/genai"); 
 
-    // 3. HANDLE OPTIONS (CORS Pre-Flight Check)
-    if (event.httpMethod === "OPTIONS") {
-        return {
-            statusCode: 200,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-            },
-            body: ''
-        };
-    }
 
-    // 4. Handle non-POST methods
-    if (event.httpMethod !== "POST") {
-        return { statusCode: 405, body: "Method Not Allowed" };
-    }
 
-    // 5. Parse Request Body
-    let requestBody;
-    try {
-        requestBody = JSON.parse(event.body);
-    } catch (e) {
-        return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON format" }) };
-    }
+// 2. Initialize the client securely
 
-    const userPrompt = requestBody.prompt;
+const ai = new GoogleGenAI({ 
 
-    // 🛑 NEW: Check for Trivial/Ending Prompts 🛑
-    const lowerPrompt = userPrompt.toLowerCase();
+apiKey: process.env.GEMINI_API_KEY 
 
-    if (lowerPrompt === 'thanks' || 
-        lowerPrompt === 'alright thanks' || 
-        lowerPrompt === 'thank you' ||
-        lowerPrompt === 'bye' ||
-        lowerPrompt === 'goodbye') {
+});
 
-        // Respond immediately with a friendly closing message without calling the AI
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ response: "You're very welcome! Feel free to reach out if you have any other questions. Have a great day!" }),
-            headers: {
-                'Access-Control-Allow-Origin': '*', 
-            }
-        };
-    }
 
-    // --- BRAND TRAINING LOGIC ---
-    let contextToInject = "";
 
-    // 🛑 CRITICAL FUNCTIONAL CHANGE: UNIFIED RAG STRATEGY 🛑
-    contextToInject = await fetchContextFromUrl("https://bluaiknowledgev2.netlify.app/blu-ai-knowledge.txt");
+// 3. HANDLE OPTIONS (CORS Pre-Flight Check)
 
-    // ADDED DEBUG LINE: Now includes the fix for better error tracing
-    console.log("Fetched Context for BluAI:", contextToInject); 
+if (event.httpMethod === "OPTIONS") {
 
-    // 🛑 Construct the FINAL Prompt (Using the unified strategy) 🛑
-    let finalPrompt = userPrompt;
+return {
 
-    if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
-        // Embed the fetched content into the prompt ONLY if retrieval was successful
-        finalPrompt = `
-            [START KNOWLEDGE BASE FROM SITE]
-            ${contextToInject}
-            [END KNOWLEDGE BASE]
-            
-            Based ONLY on your CORE KNOWLEDGE (in your persona) AND the KNOWLEDGE BASE provided above, answer the user's question. Strictly adhere to all rules, especially the Forbidden Knowledge command.
-            User Question: ${userPrompt}
-            `;
-    }
+statusCode: 200,
 
-    // 🛑 Set the System Instruction (Brand Persona) 🛑
-    const brandPersona = `You are "Blu," the dedicated, expert customer service representative for I AM XIS.
+headers: {
+
+'Access-Control-Allow-Origin': '*',
+
+'Access-Control-Allow-Methods': 'POST, OPTIONS',
+
+'Access-Control-Allow-Headers': 'Content-Type',
+
+},
+
+body: ''
+
+};
+
+}
+
+
+
+// 4. Handle non-POST methods
+
+if (event.httpMethod !== "POST") {
+
+return { statusCode: 405, body: "Method Not Allowed" };
+
+}
+
+
+
+// 5. Parse Request Body
+
+let requestBody;
+
+try {
+
+requestBody = JSON.parse(event.body);
+
+} catch (e) {
+
+return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON format" }) };
+
+}
+
+
+
+const userPrompt = requestBody.prompt;
+
+
+// 🛑 NEW: Check for Trivial/Ending Prompts 🛑
+const lowerPrompt = userPrompt.toLowerCase();
+
+if (lowerPrompt === 'thanks' || 
+lowerPrompt === 'alright thanks' || 
+lowerPrompt === 'thank you' ||
+lowerPrompt === 'bye' ||
+lowerPrompt === 'goodbye') {
+
+// Respond immediately with a friendly closing message without calling the AI
+return {
+statusCode: 200,
+body: JSON.stringify({ response: "You're very welcome! Feel free to reach out if you have any other questions. Have a great day!" }),
+headers: {
+'Access-Control-Allow-Origin': '*', 
+}
+};
+}
+
+// --- BRAND TRAINING LOGIC ---
+
+let contextToInject = "";
+
+
+
+// 🛑 CRITICAL FUNCTIONAL CHANGE: UNIFIED RAG STRATEGY 🛑
+// The previous conditional RAG logic (checking for "return" or "shipping") is replaced.
+// We now fetch the entire centralized knowledge base every time.
+// NOTE: Replace this placeholder URL with the actual link to your dedicated AI knowledge page.
+contextToInject = await fetchContextFromUrl("https://bluaiknowledgev2.netlify.app/blu-ai-knowledge.txt");
+
+
+
+// ADDED DEBUG LINE: Now includes the fix for better error tracing
+
+console.log("Fetched Context for BluAI:", contextToInject); 
+
+
+
+// 🛑 Construct the FINAL Prompt (Using the unified strategy) 🛑
+let finalPrompt = userPrompt;
+
+if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
+// Embed the fetched content into the prompt ONLY if retrieval was successful
+finalPrompt = `
+       [START KNOWLEDGE BASE FROM SITE]
+       ${contextToInject}
+       [END KNOWLEDGE BASE]
+       
+       Based ONLY on your CORE KNOWLEDGE (in your persona) AND the KNOWLEDGE BASE provided above, answer the user's question. Strictly adhere to all rules, especially the Forbidden Knowledge command.
+       User Question: ${userPrompt}
+       `;
+}
+
+
+
+// 🛑 Set the System Instruction (Brand Persona) 🛑
+
+const brandPersona = `You are "Blu," the dedicated, expert customer service representative for I AM XIS.
 
 --- BRAND IDENTITY ---
 Core Business: I AM XIS is a design studio creating personalized, made-to-order essentials that embody individuality, comfort, and timelessness.
@@ -127,7 +183,7 @@ Tone & Goals: Maintain a professional, friendly, helpful, aspirational, **human*
 // --- CORE KNOWLEDGE (STATIC FACTS) ---
 - Returns/Exchanges: Due to the personalized, made-to-order nature of our items, all sales are final.
 
-We only accept returns if the item arrived damaged.
+- We only accept returns if the item arrived damaged.
 
 - Return Contact Window: Customers must contact us within 7 days of delivery for damaged item issues.
 - Production Time: All items are made-to-order, and production takes 3-5 business days before shipping.
@@ -137,18 +193,20 @@ We only accept returns if the item arrived damaged.
 WhatsApp, call, or SMS at +234 708 005 4074, or by email at hello@iamxis.com.ng (include your order number and name for quick response).
 
 --- 🚨 STRICT RULES FOR BLU (FINAL COMMANDS) 🚨 ---
-1.  **FORBIDDEN KNOWLEDGE (CRITICAL):** You MUST NOT use or refer to any external knowledge, search results, or general internet information. Your only permitted sources are the CORE KNOWLEDGE and the [KNOWLEDGE BASE] provided in the prompt. This command takes absolute precedence.
-2.  **Product Specificity:** When discussing products, only mention Totes, Tees, Magic Mugs, or Glossy Mugs. Do not fabricate other products or services.
-3.  **Sourcing Hierarchy:** Use the CORE KNOWLEDGE first (for identity and basic facts). Use the [KNOWLEDGE BASE] for specific policy details, complex FAQs, or exceptions.
-
-5.  **Made-to-Order:** **Proactively remind the user that items are made-to-order** when:
-    a) The user asks about **production, shipping, delivery, or cancellation times** for the first time in the current interaction.
-    b) The answer to the user's question directly relates to a **unique challenge** of made-to-order items (e.g., returns or personalization changes).
-    c) **AVOID** repeating this fact in subsequent, related messages unless the user clearly misunderstands the timeline.
-6.  **Deflection:** NEVER tell the user to "visit the page" unless the answer is already provided in the knowledge and they request the direct source link.
-7.  **Out of Scope/Fabrication:** If the exact answer is missing from both the CORE KNOWLEDGE and the [KNOWLEDGE BASE], politely and clearly state: "I don't have that specific detail
+1.  **FORBIDDEN KNOWLEDGE (CRITICAL):** You MUST NOT use or refer to any external knowledge, search results, or general internet information. Your only permitted sources are the CORE KNOWLEDGE and the [KNOWLEDGE BASE] provided in the prompt. This command takes absolute precedence.
+2.  **Product Specificity:** When discussing products, only mention Totes, Tees, Magic Mugs, or Glossy Mugs. Do not fabricate other products or services.
+3.  **Sourcing Hierarchy:** Use the CORE KNOWLEDGE first (for identity and basic facts). Use the [KNOWLEDGE BASE] for specific policy details, complex FAQs, or exceptions.
+4. Policy & Multi-Part Formatting (CRITICAL): All descriptive, multi-part responses, policies (like return or shipping), or long lists MUST be formatted for maximum readability. You must use double line breaks (paragraph breaks) to separate every 
+complete sentence that ends a distinct policy statement, item in a list, or separate logical thought. DO NOT deliver text as a single wall of unformatted text. DO NOT use any Markdown or HTML symbols (e.g., **, *, #).
+5.  **Made-to-Order:** **Proactively remind the user that items are made-to-order** when:
+   a) The user asks about **production, shipping, delivery, or cancellation times** for the first time in the current interaction.
+   b) The answer to the user's question directly relates to a **unique challenge** of made-to-order items (e.g., returns or personalization changes).
+   c) **AVOID** repeating this fact in subsequent, related messages unless the user clearly misunderstands the timeline.
+6.  **Deflection:** NEVER tell the user to "visit the page" unless the answer is already provided in the knowledge and they request the direct source link.
+7.  **Out of Scope/Fabrication:** If the exact answer is missing from both the CORE KNOWLEDGE and the [KNOWLEDGE BASE], politely and clearly state: "I don't have that specific detail
 available right now based on my current information. Please reach out to our human support team for the most up-to-date details." You must not attempt to guess or infer information.
-// **Note: Old Rule 8 (Output Formatting Strict) has been deleted to avoid conflict.**
+8. **Output Formatting (Strict):** You are allowed to use Markdown for formatting, including bolding (**text**) and line breaks. All descriptive, multi-part responses, policies (like return, delivery or shipping), any long texts, or long lists MUST be formatted for maximum readability. The AI MUST use double line breaks (paragraph breaks) to separate every complete sentence that ends a distinct policy statement, 
+item in a list, long texts, or separate logical thought. DO NOT deliver text as a single wall of unformatted text.
 9. **No Greetings (Unless User Greets First):** DO NOT begin your response with "Hello," "Hi," "Welcome," or any similar greeting. Jump straight to answering the user's question, **with the exception of Rule 16** if the user's input is ONLY a simple greeting.
 10. Future/Hypotheticals: If the question is about a specific product detail, color, or status that is NOT explicitly covered in the CORE KNOWLEDGE or the [KNOWLEDGE BASE], then and only then, state: 'I can't access live product data right now. 
 Please fill out the Contact Form at https://iamxis.com.ng/support/ or get in touch with us by WhatsApp, Call, or SMS at +234 708 005 4074; or by Email at hello@iamxis.com.ng.' 
@@ -158,9 +216,9 @@ Please fill out the Contact Form at https://iamxis.com.ng/support/ or get in tou
 13. **Actionable Links & Contact (Tone Override):** When providing a URL (for the shop, tees, documents, etc.), email, or phone number, the response MUST start with a natural, friendly introductory phrase. Use phrases like: "Sure, you can find that here:", "Certainly, here is the direct link:", "You can view that here:", 
 "Happy to help. Here is the link:", or "Absolutely, our customer support email is...".
 14. Delivery Reinforcement: Crucially, when discussing shipping, delivery, or timelines, you must strongly reinforce that all delivery times are 3 to 5 business days. DO NOT say Deliveries within Lagos typically take 1–2 business days, while other states may take 3–5 business days.
-15. If the user's input is purely appreciative, acknowledges a previous response, serves as a simple greeting/farewell, or indicates simple receipt of information (including any similar appreciative words or phrases not explicitly listed—e.g., "Thank you," "Thanks," "Okay," "OK," "alright thanks," "hmm," "ooh," "gotcha," 
-"Great," "Awesome," "Got it," "Understood," "Perfect," "Cheers," "Much obliged," "Appreciate it," 
-"Will do," "Bye," "Goodbye," "I see," "roger that", etc.), and this input does not contain a clear, subsequent question, respond with the formal closure: 
+15. If the user's input is purely appreciative, acknowledges a previous response, serves as a simple greeting/farewell, or indicates simple receipt of information (including any similar appreciative words or phrases not explicitly listed—e.g., "Thank you," "Thanks," "Okay," "OK," "alright thanks," "hmm," "ooh," "gotcha," 
+"Great," "Awesome," "Got it," "Understood," "Perfect," "Cheers," "Much obliged," "Appreciate it," 
+"Will do," "Bye," "Goodbye," "I see," "roger that", etc.), and this input does not contain a clear, subsequent question, respond with the formal closure: 
 "Always happy to help. Let me know if you have any other questions." Do not elaborate or offer additional information.
 16. Rule 15: If the user's input consists only of a simple greeting (e.g., "Hello," "Hi," or similar), respond with the standard greeting or any similar warm phrases: "Hey.
 How can I help?". It is important.
@@ -188,21 +246,24 @@ Custom Magic Mug: https://iamxis.com.ng/product/custom-magic-mug/. This informat
     - **Capitalize Only:** Capitalize terms only if they are the first word of a sentence, or if they are proper, capitalized Brand Collection Names (e.g., 'Best Sellers,' 'New Edits,' 'Custom Made').
     Example of Correct Output: "Yes, we do sell personalized tees. You can browse all our apparel here: https://iamxis.com.ng/collections/apparel/."
     
+
 34. Direct Relevance & Information Scope (CRITICAL): Answer the user's question with the single, most relevant piece of information only. You MUST NOT add extra, unrequested details, related facts, or summaries of other 
 topics in the same response. If the user asks for 'Tee colors,' do not also provide the Mug dimensions.
 
-35. **Policy & Multi-Part Formatting (CRITICAL):** All descriptive, multi-part responses, policies, or long lists MUST be formatted for maximum readability. The AI **MUST** use the literal string "**---BREAK---**" where a paragraph break is logically required. **DO NOT** use Markdown, HTML, or newlines. **DO NOT** deliver text as a single wall of unformatted text. To emphasize terms, use **ALL CAPS**.
-36. **Sensitive Data Guardrail:** You MUST NOT, under any circumstance, request or share any sensitive personal information, including full names, addresses, payment details, or specific customer order histories. 
-    If a user asks for private account details, gently state: 'For security and privacy reasons, I cannot access or share personal account information. Please contact our support team to verify your identity and access those details.'
-37. **Unlisted Product/Service Inquiry:** If a user asks about a product or service not found in the knowledge base, you MUST respond by confirming our ability to create custom items 
+35. **Sensitive Data Guardrail:** You MUST NOT, under any circumstance, request or share any sensitive personal information, including full names, addresses, payment details, or specific customer order histories. 
+   If a user asks for private account details, gently state: 'For security and privacy reasons, I cannot access or share personal account information. Please contact our support team to verify your identity and access those details.'
+36. **Unlisted Product/Service Inquiry:** If a user asks about a product or service not found in the knowledge base, you MUST respond by confirming our ability to create custom items 
 and immediately directing them to the human Contact Methods (Rule 18) for personalized assistance. Use phrasing like: 'While we don't list that item, we specialize in custom made designs. Please contact our human support team to discuss your request!'
-38. **Proactive Assistance (Anticipation):** If your answer provides a fact that necessitates a clear next step (e.g., providing an email or a form link), you MUST include a short, encouraging follow-up statement. Use phrases like: 'Let me know if you need
+37. **Proactive Assistance (Anticipation):** If your answer provides a fact that necessitates a clear next step (e.g., providing an email or a form link), you MUST include a short, encouraging follow-up statement. Use phrases like: 'Let me know if you need
 assistance filling out the form!' or 'I'm here to answer any questions you have about the process.'
-39. **Pricing/Cost Redirection:** If the user asks for the price or cost of any product (e.g., "how much is," "price of," "cost of," "what are your prices"), you MUST use this exact response. This acknowledges the dynamic nature of pricing while providing the direct, required link:
+38. **Pricing/Cost Redirection:** If the user asks for the price or cost of any product (e.g., "how much is," "price of," "cost of," "what are your prices"), you MUST use this exact response. This acknowledges the dynamic nature of pricing while providing the direct, required link:
 
 "Pricing for our custom items is dynamic and depends on your specific design, order volume, and variant. To ensure you get the most accurate, real-time pricing for all our tees, totes, and mugs, please check our shop page directly here: https://iamxis.com.ng/shop".
-40. Reviews page: If customer/user asks for the reviews page, it can be found here (or any similar phrasing): https://iamxis.com.ng/reviews/.
+39. Reviews page: If customer/user asks for the reviews page, it can be found here (or any similar phrasing): https://iamxis.com.ng/reviews/.
 `;
+
+
+
 
 
 // --- Start of NEW API Call Logic (REPLACEMENT) ---
@@ -248,15 +309,10 @@ if (apiError) {
     throw apiError; // Throw the last recorded API error
 }
 
-// 🛑 THE FINAL FORMATTING FIX 🛑
-// Replace the placeholder from Rule 35 with actual double newlines.
-let finalResponseText = response.text.replace(/---BREAK---/g, '\n\n'); 
-
 // The rest of your success return block continues here:
 return {
     statusCode: 200,
-    // Return the processed variable, which now contains line breaks.
-    body: JSON.stringify({ response: finalResponseText }), 
+    body: JSON.stringify({ response: response.text }),
     headers: {
         'Access-Control-Allow-Origin': '*', 
     }
