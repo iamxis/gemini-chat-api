@@ -218,18 +218,25 @@ exports.handler = async (event) => {
 
     // --- Start of NEW API Call Logic (REPLACEMENT) ---
 
-    // 1. 🛑 FIX: Manually build the 'contents' array with the system prompt.
-    // This is the most reliable way to make the AI obey your rules.
+    // 1. 🛑 FIX: Manually build the 'contents' array with the system prompt
+    // This is the only way to force the AI to read its rules.
     const contents = [
-        // Manually insert the brandPersona as the "system" role
+        // 1. Force the brandPersona in as a 'user' message
         { 
-            role: "system", 
+            role: "user", 
             parts: [{ text: brandPersona }] 
-        }, 
-        ...history, // Then add the old messages
+        },
+        // 2. Add a priming 'model' response to complete the turn
+        {
+            role: "model",
+            parts: [{ text: "Understood. I am Blu, the I AM XIS assistant. I will follow all rules." }]
+        },
+        // 3. Add the real chat history
+        ...history, 
+        // 4. Add the new user prompt
         {
             role: "user",
-            parts: [{ text: finalPrompt }] // Finally, add the new RAG-infused prompt
+            parts: [{ text: finalPrompt }]
         }
     ];
 
@@ -241,8 +248,7 @@ exports.handler = async (event) => {
       	try { 
       	  	console.log(`Attempting Gemini API call (Attempt ${attempt}/${MAX_RETRIES})...`);
       	  	
-      	  	// 2. 🛑 FIX: Call generateContent WITHOUT the systemInstruction property
-      	  	// (since we already added it to the 'contents' array)
+      	  	// 2. 🛑 FIX: Call generateContent WITHOUT systemInstruction
       	  	result = await ai.models.generateContent({
       	  	  	model: "gemini-2.5-flash-lite", 
       	  	  	contents: contents                 
@@ -254,8 +260,13 @@ exports.handler = async (event) => {
       	} catch (error) {
       	  	apiError = error; 
       	  	console.warn(`Gemini API call failed on attempt ${attempt}: ${error.message}`);
-      	  	if (error.message.includes('503') && attempt < MAX_RETRIES) {
-      	  	  	await new Promise(resolve => setTimeout(resolve, 3000));
+      	  	if (error.message.includes('503') || error.message.includes('400')) {
+                // If it's a 400 error, don't retry, just fail.
+                if (attempt < MAX_RETRIES && !error.message.includes('400')) {
+      	  	  	    await new Promise(resolve => setTimeout(resolve, 3000));
+                } else {
+                    throw error;
+                }
       	  	} else {
       	  	  	throw error; 
       	  	}
@@ -267,7 +278,7 @@ exports.handler = async (event) => {
       	throw apiError;
     }
 
-    // 3. 🛑 FIX: Check for safety blocks/empty responses
+    // 3. 🛑 FIX: Check for safety blocks (based on your previous log)
     if (!result || !result.candidates || !result.candidates[0] || !result.candidates[0].content) {
         
         console.error("API call succeeded but returned an invalid object. This is likely a safety block.", JSON.stringify(result, null, 2));
@@ -288,7 +299,7 @@ exports.handler = async (event) => {
 
     // 6. Create the new history array
     const updatedHistory = [
-        ...history,
+        ...history, // Note: We don't save the persona to the frontend history
         { 
             role: "user", 
             parts: [{ text: userPrompt }] 
@@ -307,7 +318,7 @@ exports.handler = async (event) => {
             history: updatedHistory       
         }), 
       	headers: {
-      	  	'Access-Control-Allow-Origin': '*', 
+      	  	'Access-Control-Allow-Origin': '*',D
       	}
     };
 
