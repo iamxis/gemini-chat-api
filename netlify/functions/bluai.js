@@ -33,6 +33,9 @@ async function fetchContextFromUrl(url) {
 }
 // --- END HELPER FUNCTION ---
 
+// 🛑 NEW: Cache the knowledge data in the global scope
+// This runs ONCE on cold start, not on every request.
+const knowledgePromise = fetchContextFromUrl("https://bluaiknowledgev2.netlify.app/blu-ai-knowledge.txt");
 
 exports.handler = async (event) => {
 
@@ -93,9 +96,8 @@ exports.handler = async (event) => {
 
     // --- BRAND TRAINING LOGIC ---
     let contextToInject = "";
-
-    // 🛑 CRITICAL FUNCTIONAL CHANGE: UNIFIED RAG STRATEGY 🛑
-    contextToInject = await fetchContextFromUrl("https://bluaiknowledgev2.netlify.app/blu-ai-knowledge.txt");
+    // 🛑 CRITICAL FUNCTIONAL CHANGE: Use the cached promise
+    contextToInject = await knowledgePromise; // <--- Uses the cached result
 
     // ADDED DEBUG LINE: Now includes the fix for better error tracing
     console.log("Fetched Context for BluAI:", contextToInject); 
@@ -232,7 +234,12 @@ exports.handler = async (event) => {
    `;
 
 
-// --- Start of NEW API Call Logic (REPLACEMENT) ---
+// --- Start of NEW API Call Logic (REPLACEMENT) 
+// 1. 🛑 Initialize the model OUTSIDE the loop, passing the brandPersona
+const model = ai.getGenerativeModel({
+    model: "gemini-2.5-flash", // You can swap this for 'gemini-2.5-flash-lite'
+    systemInstruction: brandPersona
+});
 
 const MAX_RETRIES = 3; 
 let response = null;
@@ -242,13 +249,8 @@ for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try { 
         console.log(`Attempting Gemini API call (Attempt ${attempt}/${MAX_RETRIES})...`);
         
-        response = await ai.models.generateContent({
-            model: "gemini-2.5-flash", 
-            contents: finalPrompt,
-            config: {
-                systemInstruction: brandPersona, 
-            },
-        });
+        // 2. 🛑 Call generateContent with ONLY the prompt
+        result = await model.generateContent(finalPrompt);
         
         // If successful, break the loop
         apiError = null; 
@@ -275,9 +277,9 @@ if (apiError) {
     throw apiError; // Throw the last recorded API error
 }
 
-// 🛑 THE FINAL FORMATTING FIX 🛑
-// Replace the placeholder from Rule 35 with actual double newlines.
-let finalResponseText = response.text.replace(/---BREAK---/g, '\n\n');
+// 3. 🛑 Get the response text from the 'result' object
+const response = result.response;
+let finalResponseText = response.text().replace(/---BREAK---/g, '\n\n');
 
 // The rest of your success return block continues here:
 return {
