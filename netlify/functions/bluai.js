@@ -228,60 +228,63 @@ exports.handler = async (event) => {
 
     // --- Start of NEW API Call Logic (REPLACEMENT) ---
 
-    // 1. 🛑 FIX: Get the specific model from the client
-    // This is the correct v2 syntax: ai.getModel()
-    const model = ai.model({
-        model: "gemini-2.5-flash-lite", 
-        systemInstruction: brandPersona
-    });
-
-    // 2. 🛑 FIX: Start the chat session from that model
-    const chat = model.startChat({
-        history: history
-    });
+    // 1. 🛑 FIX: Manually build the 'contents' array.
+    // The v2 SDK is stateless, so we must send the full history + new prompt every time.
+    const contents = [
+        ...history, // The old messages
+        {
+            role: "user",
+            parts: [{ text: finalPrompt }] // The new RAG-infused prompt
+        }
+    ];
 
     const MAX_RETRIES = 3; 
     let result = null; 
     let apiError = null;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        try { 
-            console.log(`Attempting Gemini API call (Attempt ${attempt}/${MAX_RETRIES})...`);
-            
-            // 3. 🛑 FIX #5: Use chat.sendMessage()
-            result = await chat.sendMessage(finalPrompt);
-            
-            apiError = null; 
-            break; 
+      	try { 
+      	  	console.log(`Attempting Gemini API call (Attempt ${attempt}/${MAX_RETRIES})...`);
+      	  	
+      	  	// 2. 🛑 FIX: Use ai.models.generateContent() with the correct parameters
+      	  	result = await ai.models.generateContent({
+      	  	  	model: "gemini-2.5-flash-lite", // The model to use
+      	  	  	contents: contents,                 // The full chat history + new prompt
+      	  	  	systemInstruction: brandPersona   // The system prompt (at the top level)
+      	  	});
+      	  	
+      	  	apiError = null; 
+      	  	break; 
 
-        } catch (error) {
-            apiError = error; 
-            console.warn(`Gemini API call failed on attempt ${attempt}: ${error.message}`);
+      	} catch (error) {
+      	  	apiError = error; 
+      	  	console.warn(`Gemini API call failed on attempt ${attempt}: ${error.message}`);
 
-            if (error.message.includes('503') && attempt < MAX_RETRIES) {
-                await new Promise(resolve => setTimeout(resolve, 3000));
-            } else {
-                throw error; 
-            }
-        }
+      	  	if (error.message.includes('503') && attempt < MAX_RETRIES) {
+      	  	  	await new Promise(resolve => setTimeout(resolve, 3000));
+      	  	} else {
+      	  	  	throw error; 
+      	  	}
+      	}
     }
 
     if (apiError) {
-        console.error("Failed to get a response after all retries.");
-        throw apiError;
+      	console.error("Failed to get a response after all retries.");
+      	throw apiError;
     }
 
-    // 4. Get the response text
-    const response = result.response;
-    const rawResponseText = response.text(); 
+    // 3. Get the response text
+    // Note: The 'result' object is the response itself in this v2 SDK
+    const rawResponseText = result.response.text(); 
 
-    // 5. Process the text for display
+    // 4. Process the text for display
     let finalResponseText = rawResponseText.replace(/---BREAK---/g, '\n\n');
 
-    // 6. 🛑 FIX #6: Create the new history array
+    // 5. Create the new history array
     const updatedHistory = [
         ...history,
         { 
+            // We use the *original* userPrompt for history, not the RAG-filled one
             role: "user", 
             parts: [{ text: userPrompt }] 
         },
@@ -291,18 +294,19 @@ exports.handler = async (event) => {
         }
     ];
 
-    // 7. 🛑 FIX #7: Return the full response object
+    // 6. Return the full response object
     return {
-        statusCode: 200,
-        body: JSON.stringify({ 
-            response: finalResponseText, // The formatted response for display
-            history: updatedHistory       // The full history for the next request
+      	statusCode: 200,
+      	body: JSON.stringify({ 
+            response: finalResponseText, 
+            history: updatedHistory       
         }), 
-        headers: {
-            'Access-Control-Allow-Origin': '*', 
-        }
+      	headers: {
+      	  	'Access-Control-Allow-Origin': '*', 
+      	}
     };
 
+// --- End of NEW API Call Logic (REPLACEMENT) ---
 // --- End of NEW API Call Logic (REPLACEMENT) ---
 
 };
