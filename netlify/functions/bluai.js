@@ -249,7 +249,7 @@ exports.handler = async (event) => {
       	  	console.log(`Attempting Gemini API call (Attempt ${attempt}/${MAX_RETRIES})...`);
       	  	
       	  	result = await ai.models.generateContent({
-      	  	  	model: "gemini-2.5-flash-lite", // You can upgrade to "gemini-2.5-flash" if it still struggles
+      	  	  	model: "gemini-2.5-flash", // You can upgrade to "gemini-2.5-flash" if it still struggles
       	  	  	contents: contents                 
       	  	});
       	  	
