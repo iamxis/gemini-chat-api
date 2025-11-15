@@ -63,8 +63,9 @@ exports.handler = async (event) => {
   	  	return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON format" }) };
   	}
 
-  	// 🛑 STATELESS: We only read the prompt, not history
+  	// 🛑 STATEFUL: Read both prompt and history
   	const userPrompt = requestBody.prompt;
+  	const history = requestBody.history || [];
 
   	// Check for Trivial/Ending Prompts
   	const lowerPrompt = userPrompt.toLowerCase();
@@ -74,11 +75,12 @@ exports.handler = async (event) => {
   	  	lowerPrompt === 'bye' ||
   	  	lowerPrompt === 'goodbye') {
 
-  	  	// 🛑 STATELESS: Return a simple response, no history
+  	  	// 🛑 STATEFUL: Return response AND history
   	  	return {
   	  	  	statusCode: 200,
   	  	  	body: JSON.stringify({ 
-                response: "You're very welcome! Feel free to reach out if you have any other questions. Have a great day!"
+                response: "You're very welcome! Feel free to reach out if you have any other questions. Have a great day!",
+                history: history // Send back unchanged history
             }),
   	  	  	headers: { 'Access-Control-Allow-Origin': '*' }
   	  	};
@@ -88,7 +90,7 @@ exports.handler = async (event) => {
   	const contextToInject = await knowledgePromise;
   	console.log("Fetched Context for BluAI:", contextToInject); 
 
-  	// 🛑 FIX: Simplify the final prompt to prevent AI confusion
+  	// 🛑 FIX: Simplify the final prompt
   	let finalPrompt = userPrompt;
   	if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
   	  	finalPrompt = `
@@ -220,7 +222,6 @@ exports.handler = async (event) => {
     // --- Start of NEW API Call Logic (REPLACEMENT) ---
 
     // 1. 🛑 FIX: Force the AI to read your 59 rules by "priming" it.
-    // This is stateless but gives the AI the rules for every request.
     const contents = [
         { 
             role: "user", 
@@ -230,7 +231,9 @@ exports.handler = async (event) => {
             role: "model",
             parts: [{ text: "Understood. I am Blu, the I AM XIS assistant. I will follow all rules." }]
         },
-        // This is the new user prompt
+        // 2. 🛑 STATEFUL: Add the real chat history
+        ...history, 
+        // 3. Add the new user prompt
         {
             role: "user",
             parts: [{ text: finalPrompt }]
@@ -245,9 +248,8 @@ exports.handler = async (event) => {
       	try { 
       	  	console.log(`Attempting Gemini API call (Attempt ${attempt}/${MAX_RETRIES})...`);
       	  	
-      	  	// 2. 🛑 FIX: Call generateContent with the correct contents array
       	  	result = await ai.models.generateContent({
-      	  	  	model: "gemini-2.5-flash-lite", 
+      	  	  	model: "gemini-2.5-flash-lite", // You can upgrade to "gemini-2.5-flash" if it still struggles
       	  	  	contents: contents                 
       	  	});
       	  	
@@ -270,29 +272,43 @@ exports.handler = async (event) => {
       	throw apiError;
     }
 
-    // 3. 🛑 FIX: Check for safety blocks/empty responses
+    // 4. 🛑 FIX: Check for safety blocks/empty responses
     if (!result || !result.candidates || !result.candidates[0] || !result.candidates[0].content) {
         console.error("API call succeeded but returned an invalid object (Safety Block).", JSON.stringify(result, null, 2));
         const errorText = "I'm sorry, I am unable to respond to that prompt. Please try rephrasing.";
         
         return {
             statusCode: 200,
-            body: JSON.stringify({ response: errorText }),
+            body: JSON.stringify({ response: errorText, history: history }), // Return old history
             headers: { 'Access-Control-Allow-Origin': '*' }
         };
     }
 
-    // 4. 🛑 FIX: Get the response text from the correct location
+    // 5. 🛑 FIX: Get the response text from the correct location
     const rawResponseText = result.candidates[0].content.parts[0].text; 
 
-    // 5. Process the text for display
+    // 6. Process the text for display
     let finalResponseText = rawResponseText.replace(/---BREAK---/g, '\n\n');
 
-    // 6. 🛑 STATELESS: Return the simple response object
+    // 7. 🛑 STATEFUL: Create the new history array
+    const updatedHistory = [
+        ...history, 
+        { 
+            role: "user", 
+            parts: [{ text: userPrompt }] // Use the *original* simple prompt
+        },
+        { 
+            role: "model", 
+            parts: [{ text: rawResponseText }] // Use the raw AI response
+        }
+    ];
+
+    // 8. 🛑 STATEFUL: Return the full response object
     return {
       	statusCode: 200,
       	body: JSON.stringify({ 
-            response: finalResponseText
+            response: finalResponseText, 
+            history: updatedHistory       
         }), 
       	headers: {
       	  	'Access-Control-Allow-Origin': '*', 
