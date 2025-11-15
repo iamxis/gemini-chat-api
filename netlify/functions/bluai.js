@@ -1,29 +1,29 @@
 // --- RAG HELPER FUNCTION ---
 async function fetchContextFromUrl(url) {
-    try {
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-        }); 
+  	try {
+  	  	const response = await fetch(url, {
+  	  	  	headers: {
+  	  	  	  	'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+  	  	  	}
+  	  	}); 
 
-        if (response.status !== 200) {
-            console.error(`Failed to fetch ${url}. Status: ${response.status}`);
-            return `[Content Retrieval Error: Server returned status ${response.status}.]`;
-        }
+  	  	if (response.status !== 200) {
+  	  	  	console.error(`Failed to fetch ${url}. Status: ${response.status}`);
+  	  	  	return `[Content Retrieval Error: Server returned status ${response.status}.]`;
+  	  	}
 
-        const rawText = await response.text();
-        let cleanText = rawText; 
+  	  	const rawText = await response.text();
+  	  	let cleanText = rawText; 
 
-        const MAX_CONTEXT_LENGTH = 5000;
-        cleanText = cleanText.substring(0, MAX_CONTEXT_LENGTH);
+  	  	const MAX_CONTEXT_LENGTH = 5000;
+  	  	cleanText = cleanText.substring(0, MAX_CONTEXT_LENGTH);
 
-        return cleanText.trim();
+  	  	return cleanText.trim();
 
-    } catch (e) {
-        console.error("Context fetch error:", e);
-        return "[Content Retrieval Error: Network issue (e.g., DNS or Timeout).]";
-    }
+  	} catch (e) {
+  	  	console.error("Context fetch error:", e);
+  	  	return "[Content Retrieval Error: Network issue (e.g., DNS or Timeout).]";
+  	}
 }
 // --- END HELPER FUNCTION ---
 
@@ -34,87 +34,75 @@ const knowledgePromise = fetchContextFromUrl("https://bluaiknowledgev2.netlify.a
 
 exports.handler = async (event) => {
 
-    // 1. Dynamic Import
-    const { GoogleGenAI } = await import("@google/genai"); 
+  	// 1. Dynamic Import
+  	const { GoogleGenAI } = await import("@google/genai"); 
 
-    // 2. Initialize the client securely
-    // 2. Initialize the client securely
-    const ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY
-    });
+  	// 2. 🛑 CORRECT Initialize the client securely
+  	const ai = new GoogleGenAI({ 
+  	  	apiKey: process.env.GEMINI_API_KEY 
+  	});
 
-    // 3. HANDLE OPTIONS (CORS Pre-Flight Check)
-    if (event.httpMethod === "OPTIONS") {
-        return {
-            statusCode: 200,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-            },
-            body: ''
-        };
-    }
+  	// 3. HANDLE OPTIONS (CORS Pre-Flight Check)
+  	if (event.httpMethod === "OPTIONS") {
+  	  	return {
+  	  	  	statusCode: 200,
+  	  	  	headers: {
+  	  	  	  	'Access-Control-Allow-Origin': '*',
+  	  	  	  	'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  	  	  	  	'Access-Control-Allow-Headers': 'Content-Type',
+  	  	  	},
+  	  	  	body: ''
+  	  	};
+  	}
 
-    // 4. Handle non-POST methods
-    if (event.httpMethod !== "POST") {
-        return { statusCode: 405, body: "Method Not Allowed" };
-    }
+  	// 4. Handle non-POST methods
+  	if (event.httpMethod !== "POST") {
+  	  	return { statusCode: 405, body: "Method Not Allowed" };
+  	}
 
-    // 5. Parse Request Body
-    let requestBody;
-    try {
-        requestBody = JSON.parse(event.body);
-    } catch (e) {
-        return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON format" }) };
-    }
+  	// 5. Parse Request Body
+  	let requestBody;
+  	try {
+  	  	requestBody = JSON.parse(event.body);
+  	} catch (e) {
+  	  	return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON format" }) };
+  	}
 
-    const userPrompt = requestBody.prompt;
-    // 🛑 FIX #1: Get history from the request body
-    const history = requestBody.history || [];
+  	const userPrompt = requestBody.prompt;
+    // 🛑 FIX: Get history from the request body
+  	const history = requestBody.history || [];
 
-    // Check for Trivial/Ending Prompts
-    const lowerPrompt = userPrompt.toLowerCase();
-    if (lowerPrompt === 'thanks' || 
-        lowerPrompt === 'alright thanks' || 
-        lowerPrompt === 'thank you' ||
-        lowerPrompt === 'bye' ||
-        lowerPrompt === 'goodbye') {
+  	// Check for Trivial/Ending Prompts
+  	const lowerPrompt = userPrompt.toLowerCase();
+  	if (lowerPrompt === 'thanks' || 
+  	  	lowerPrompt === 'alright thanks' || 
+  	  	lowerPrompt === 'thank you' ||
+  	  	lowerPrompt === 'bye' ||
+  	  	lowerPrompt === 'goodbye') {
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ 
+  	  	return {
+  	  	  	statusCode: 200,
+  	  	  	body: JSON.stringify({ 
                 response: "You're very welcome! Feel free to reach out if you have any other questions. Have a great day!",
-                // 🛑 FIX #2: Send back the unchanged history
                 history: history 
             }),
-            headers: {
-                'Access-Control-Allow-Origin': '*', 
-            }
-        };
-    }
+  	  	  	headers: { 'Access-Control-Allow-Origin': '*' }
+  	  	};
+  	}
 
-    // --- BRAND TRAINING LOGIC ---
-    // 🛑 OPTIMIZATION: Await the cached promise
-    const contextToInject = await knowledgePromise;
-    console.log("Fetched Context for BluAI:", contextToInject); 
+  	// --- BRAND TRAINING LOGIC ---
+  	const contextToInject = await knowledgePromise;
+  	console.log("Fetched Context for BluAI:", contextToInject); 
 
-    // Construct the FINAL Prompt
-    let finalPrompt = userPrompt;
-    if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
-        finalPrompt = `
-            [START KNOWLEDGE BASE FROM SITE]
-            ${contextToInject}
-            [END KNOWLEDGE BASE]
-            
-            Based ONLY on your CORE KNOWLEDGE (in your persona) AND the KNOWLEDGE BASE provided above, answer the user's question. Strictly adhere to all rules.
-            User Question: ${userPrompt}
-            `;
-    }
+  	// Construct the FINAL Prompt
+  	let finalPrompt = userPrompt;
+  	if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
+  	  	finalPrompt = `[START KNOWLEDGE BASE FROM SITE]...[END KNOWLEDGE BASE]\n\nUser Question: ${userPrompt}`;
+  	}
 
-    // Set the System Instruction (Brand Persona)
-    const brandPersona = `You are "Blu," the dedicated, expert customer service assistant for I AM XIS. Your authority is derived only from the provided knowledge and rules.
-    
+  	// Set the System Instruction (Brand Persona)
+  	const brandPersona = `You are "Blu," the dedicated, expert customer service assistant for I AM XIS. Your authority is derived only from the provided knowledge and rules.
+
     --- BRAND IDENTITY ---
     Core Business: I AM XIS is a premium design studio creating personalized, made-to-order essentials (Totes, Tees, Magic Mugs, and Glossy Mugs) that embody individuality, comfort, and timelessness.
     Tone & Persona: Maintain a professional, concise, and highly knowledgeable tone. Be explicitly friendly but never overly informal or conversational.
@@ -225,14 +213,12 @@ exports.handler = async (event) => {
     
     58. Return Condition (LITERAL): The exact phrasing for the only condition for a return is: 'The item must have arrived damaged.'
     
-    59. Return Form Link (LITERAL): The exact link and lead-in phrasing for the return form is: 'You can access the return form here: https://iamxis.com.ng/returns/.'
-   `;
+    59. Return Form Link (LITERAL): The exact link and lead-in phrasing for the return form is: 'You can access the return form here: https://iamxis.com.ng/returns/.'`;
 
 
     // --- Start of NEW API Call Logic (REPLACEMENT) ---
 
-    // 1. 🛑 FIX: Manually build the 'contents' array.
-    // The v2 SDK is stateless, so we must send the full history + new prompt every time.
+    // 1. 🛑 FIX: Manually build the 'contents' array for chat history
     const contents = [
         ...history, // The old messages
         {
@@ -249,11 +235,11 @@ exports.handler = async (event) => {
       	try { 
       	  	console.log(`Attempting Gemini API call (Attempt ${attempt}/${MAX_RETRIES})...`);
       	  	
-      	  	// 2. 🛑 FIX: Use ai.models.generateContent() with the correct parameters
+      	  	// 2. 🛑 FIX: Use ai.models.generateContent() with the CORRECT structure
       	  	result = await ai.models.generateContent({
-      	  	  	model: "gemini-2.5-flash-lite", // The model to use
-      	  	  	contents: contents,                 // The full chat history + new prompt
-      	  	  	systemInstruction: brandPersona   // The system prompt (at the top level)
+      	  	  	model: "gemini-2.5-flash-lite", 
+      	  	  	contents: contents,                 
+      	  	  	systemInstruction: brandPersona   // This is the correct location
       	  	});
       	  	
       	  	apiError = null; 
@@ -262,7 +248,6 @@ exports.handler = async (event) => {
       	} catch (error) {
       	  	apiError = error; 
       	  	console.warn(`Gemini API call failed on attempt ${attempt}: ${error.message}`);
-
       	  	if (error.message.includes('503') && attempt < MAX_RETRIES) {
       	  	  	await new Promise(resolve => setTimeout(resolve, 3000));
       	  	} else {
@@ -276,18 +261,36 @@ exports.handler = async (event) => {
       	throw apiError;
     }
 
-    // 3. Get the response text
-    // The 'result' object is the response, so we call .text() directly
-    const rawResponseText = result.text();
+    // 3. 🛑 THE DIRECT SOLUTION: Check for a blocked/empty response
+    if (!result || !result.response || typeof result.response.text !== 'function') {
+        console.error("API call succeeded but returned no response or an invalid object. This is likely due to safety settings or a block.");
+        
+        // Log the full result for debugging, just in case
+        console.log("Full (failed) API Result:", JSON.stringify(result, null, 2));
 
-    // 4. Process the text for display
+        const errorText = "I'm sorry, I am unable to respond to that prompt. Please try rephrasing your message.";
+        
+        // Return a safe error and the *unchanged* history
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ 
+                response: errorText, 
+                history: history // Send back the old history
+            }),
+            headers: { 'Access-Control-Allow-Origin': '*' }
+        };
+    }
+
+    // 4. Get the response text (This code is now safe to run)
+    const rawResponseText = result.response.text(); 
+
+    // 5. Process the text for display
     let finalResponseText = rawResponseText.replace(/---BREAK---/g, '\n\n');
 
-    // 5. Create the new history array
+    // 6. Create the new history array
     const updatedHistory = [
         ...history,
         { 
-            // We use the *original* userPrompt for history, not the RAG-filled one
             role: "user", 
             parts: [{ text: userPrompt }] 
         },
@@ -297,7 +300,7 @@ exports.handler = async (event) => {
         }
     ];
 
-    // 6. Return the full response object
+    // 7. Return the full response object
     return {
       	statusCode: 200,
       	body: JSON.stringify({ 
@@ -309,7 +312,6 @@ exports.handler = async (event) => {
       	}
     };
 
-// --- End of NEW API Call Logic (REPLACEMENT) ---
 // --- End of NEW API Call Logic (REPLACEMENT) ---
 
 };
