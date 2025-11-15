@@ -318,7 +318,7 @@ exports.handler = async (event) => {
             history: updatedHistory       
         }), 
       	headers: {
-      	  	'Access-Control-Allow-Origin': '*',D
+      	  	'Access-Control-Allow-Origin': '*',
       	}
     };
 
