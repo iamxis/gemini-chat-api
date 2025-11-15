@@ -248,7 +248,7 @@ exports.handler = async (event) => {
       	  	
       	  	// 2. 🛑 FIX: Use ai.models.generateContent() with the correct parameters
       	  	result = await ai.models.generateContent({
-      	  	  	model: "gemini-2.5-flash", // The model to use
+      	  	  	model: "gemini-2.5-flash-lite", // The model to use
       	  	  	contents: contents,                 // The full chat history + new prompt
       	  	  	systemInstruction: brandPersona   // The system prompt (at the top level)
       	  	});
