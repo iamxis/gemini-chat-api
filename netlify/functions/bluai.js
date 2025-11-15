@@ -228,14 +228,11 @@ exports.handler = async (event) => {
 
     // --- Start of NEW API Call Logic (REPLACEMENT) ---
 
-    // 1. 🛑 FIX #3: Initialize the model with the system instruction
-    const model = ai.getGenModel({
+    // 1. 🛑 FIX: Use the new modular "v2" syntax to start a chat
+    // This correctly uses ai.models.startChat()
+    const chat = ai.models.startChat({
         model: "gemini-2.5-flash-lite", 
-        systemInstruction: brandPersona
-    });
-
-    // 2. 🛑 FIX #4: Start a chat session using the provided history
-    const chat = model.startChat({
+        systemInstruction: brandPersona,
         history: history
     });
 
