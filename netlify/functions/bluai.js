@@ -38,7 +38,10 @@ exports.handler = async (event) => {
     const { GoogleGenAI } = await import("@google/genai"); 
 
     // 2. Initialize the client securely
-    const ai = new GoogleGenAI(process.env.GEMINI_API_KEY);
+    // 2. Initialize the client securely
+    const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY
+    });
 
     // 3. HANDLE OPTIONS (CORS Pre-Flight Check)
     if (event.httpMethod === "OPTIONS") {
