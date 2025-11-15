@@ -1,122 +1,107 @@
-// netlify/functions/bluai-chat.js (Final Version with RAG and User-Agent Fix)
-
 // --- RAG HELPER FUNCTION ---
 async function fetchContextFromUrl(url) {
-    try {
-        // 🛑 FIX: Added User-Agent header to bypass potential 503 firewalls/security checks
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-        }); 
-
-        if (response.status !== 200) {
-            console.error(`Failed to fetch ${url}. Status: ${response.status}`);
-            return `[Content Retrieval Error: Server returned status ${response.status}.]`;
-        }
-
-        const rawText = await response.text(); // Renamed for clarity (was rawHtml)
-
-        // --- CLEANUP REMOVED: Since the source is now .txt, we use the raw text directly ---
-        let cleanText = rawText; // <--- The single replacement line
-
-        // Truncate content to avoid exceeding Gemini's token limit
-        const MAX_CONTEXT_LENGTH = 5000;
-        cleanText = cleanText.substring(0, MAX_CONTEXT_LENGTH);
-
-        return cleanText.trim();
-
-    } catch (e) {
-        console.error("Context fetch error:", e);
-        return "[Content Retrieval Error: Network issue (e.g., DNS or Timeout).]";
-    }
+  	try {
+  	  	const response = await fetch(url, {
+  	  	  	headers: {
+  	  	  	  	'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+  	  	  	}
+  	  	}); 
+  	  	if (response.status !== 200) {
+  	  	  	console.error(`Failed to fetch ${url}. Status: ${response.status}`);
+  	  	  	return `[Content Retrieval Error: Server returned status ${response.status}.]`;
+  	  	}
+  	  	const rawText = await response.text();
+  	  	let cleanText = rawText; 
+  	  	const MAX_CONTEXT_LENGTH = 5000;
+  	  	cleanText = cleanText.substring(0, MAX_CONTEXT_LENGTH);
+  	  	return cleanText.trim();
+  	} catch (e) {
+  	  	console.error("Context fetch error:", e);
+  	  	return "[Content Retrieval Error: Network issue (e.g., DNS or Timeout).]";
+  	}
 }
 // --- END HELPER FUNCTION ---
 
 
+// 🛑 OPTIMIZATION: Cache the knowledge data in the global scope.
+const knowledgePromise = fetchContextFromUrl("https://bluaiknowledgev2.netlify.app/blu-ai-knowledge.txt");
+
+
 exports.handler = async (event) => {
 
-    // 1. Dynamic Import
-    const { GoogleGenAI } = await import("@google/genai"); 
+  	// 1. Dynamic Import
+  	const { GoogleGenAI } = await import("@google/genai"); 
 
-    // 2. Initialize the client securely
-    const ai = new GoogleGenAI({ 
-        apiKey: process.env.GEMINI_API_KEY 
-    });
+  	// 2. 🛑 CORRECT Initialize the client securely
+  	const ai = new GoogleGenAI({ 
+  	  	apiKey: process.env.GEMINI_API_KEY 
+  	});
 
-    // 3. HANDLE OPTIONS (CORS Pre-Flight Check)
-    if (event.httpMethod === "OPTIONS") {
-        return {
-            statusCode: 200,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-            },
-            body: ''
-        };
-    }
+  	// 3. HANDLE OPTIONS (CORS Pre-Flight Check)
+  	if (event.httpMethod === "OPTIONS") {
+  	  	return {
+  	  	  	statusCode: 200,
+  	  	  	headers: {
+  	  	  	  	'Access-Control-Allow-Origin': '*',
+  	  	  	  	'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  	  	  	  	'Access-Control-Allow-Headers': 'Content-Type',
+  	  	  	},
+  	  	  	body: ''
+  	  	};
+  	}
 
-    // 4. Handle non-POST methods
-    if (event.httpMethod !== "POST") {
-        return { statusCode: 405, body: "Method Not Allowed" };
-    }
+  	// 4. Handle non-POST methods
+  	if (event.httpMethod !== "POST") {
+  	  	return { statusCode: 405, body: "Method Not Allowed" };
+  	}
 
-    // 5. Parse Request Body
-    let requestBody;
-    try {
-        requestBody = JSON.parse(event.body);
-    } catch (e) {
-        return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON format" }) };
-    }
+  	// 5. Parse Request Body
+  	let requestBody;
+  	try {
+  	  	requestBody = JSON.parse(event.body);
+  	} catch (e) {
+  	  	return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON format" }) };
+  	}
 
-    const userPrompt = requestBody.prompt;
+  	// 🛑 STATELESS: We only read the prompt, not history
+  	const userPrompt = requestBody.prompt;
 
-    // 🛑 NEW: Check for Trivial/Ending Prompts 🛑
-    const lowerPrompt = userPrompt.toLowerCase();
+  	// Check for Trivial/Ending Prompts
+  	const lowerPrompt = userPrompt.toLowerCase();
+  	if (lowerPrompt === 'thanks' || 
+  	  	lowerPrompt === 'alright thanks' || 
+  	  	lowerPrompt === 'thank you' ||
+  	  	lowerPrompt === 'bye' ||
+  	  	lowerPrompt === 'goodbye') {
 
-    if (lowerPrompt === 'thanks' || 
-        lowerPrompt === 'alright thanks' || 
-        lowerPrompt === 'thank you' ||
-        lowerPrompt === 'bye' ||
-        lowerPrompt === 'goodbye') {
+  	  	// 🛑 STATELESS: Return a simple response, no history
+  	  	return {
+  	  	  	statusCode: 200,
+  	  	  	body: JSON.stringify({ 
+                response: "You're very welcome! Feel free to reach out if you have any other questions. Have a great day!"
+            }),
+  	  	  	headers: { 'Access-Control-Allow-Origin': '*' }
+  	  	};
+  	}
 
-        // Respond immediately with a friendly closing message without calling the AI
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ response: "You're very welcome! Feel free to reach out if you have any other questions. Have a great day!" }),
-            headers: {
-                'Access-Control-Allow-Origin': '*', 
-            }
-        };
-    }
+  	// --- BRAND TRAINING LOGIC ---
+  	const contextToInject = await knowledgePromise;
+  	console.log("Fetched Context for BluAI:", contextToInject); 
 
-    // --- BRAND TRAINING LOGIC ---
-    let contextToInject = "";
+  	// 🛑 FIX: Simplify the final prompt to prevent AI confusion
+  	let finalPrompt = userPrompt;
+  	if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
+  	  	finalPrompt = `
+  	  	  	[START KNOWLEDGE BASE]
+  	  	  	${contextToInject}
+  	  	  	[END KNOWLEDGE BASE]
+  	  	  	
+  	  	  	User Question: ${userPrompt}
+  	  	  	`;
+  	}
 
-    // 🛑 CRITICAL FUNCTIONAL CHANGE: UNIFIED RAG STRATEGY 🛑
-    contextToInject = await fetchContextFromUrl("https://bluaiknowledgev2.netlify.app/blu-ai-knowledge.txt");
-
-    // ADDED DEBUG LINE: Now includes the fix for better error tracing
-    console.log("Fetched Context for BluAI:", contextToInject); 
-
-    // 🛑 Construct the FINAL Prompt (Using the unified strategy) 🛑
-    let finalPrompt = userPrompt;
-
-    if (contextToInject.length > 0 && !contextToInject.startsWith('[Content Retrieval Error:')) {
-        // Embed the fetched content into the prompt ONLY if retrieval was successful
-        finalPrompt = `
-            [START KNOWLEDGE BASE FROM SITE]
-            ${contextToInject}
-            [END KNOWLEDGE BASE]
-            
-            Based ONLY on your CORE KNOWLEDGE (in your persona) AND the KNOWLEDGE BASE provided above, answer the user's question. Strictly adhere to all rules, especially the Forbidden Knowledge command.
-            User Question: ${userPrompt}
-            `;
-    }
-
-    // 🛑 Set the System Instruction (Brand Persona) 🛑
-    const brandPersona = `You are "Blu," the dedicated, expert customer service assistant for I AM XIS. Your authority is derived only from the provided knowledge and rules.
+  	// Set the System Instruction (Brand Persona)
+  	const brandPersona = `You are "Blu," the dedicated, expert customer service assistant for I AM XIS. Your authority is derived only from the provided knowledge and rules.
 
     --- BRAND IDENTITY ---
     Core Business: I AM XIS is a premium design studio creating personalized, made-to-order essentials (Totes, Tees, Magic Mugs, and Glossy Mugs) that embody individuality, comfort, and timelessness.
@@ -232,62 +217,87 @@ exports.handler = async (event) => {
    `;
 
 
-// --- Start of NEW API Call Logic (REPLACEMENT) ---
+    // --- Start of NEW API Call Logic (REPLACEMENT) ---
 
-const MAX_RETRIES = 3; 
-let response = null;
-let apiError = null;
-
-for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try { 
-        console.log(`Attempting Gemini API call (Attempt ${attempt}/${MAX_RETRIES})...`);
-        
-        response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-lite", 
-            contents: finalPrompt,
-            config: {
-                systemInstruction: brandPersona, 
-            },
-        });
-        
-        // If successful, break the loop
-        apiError = null; 
-        break; 
-
-    } catch (error) {
-        apiError = error; // Store the error
-        console.warn(`Gemini API call failed on attempt ${attempt}: ${error.message}`);
-
-        // Check for 503 error to retry
-        if (error.message.includes('503') && attempt < MAX_RETRIES) {
-            // Wait for 1 second before retrying
-            await new Promise(resolve => setTimeout(resolve, 3000));
-        } else {
-            // If it's a permanent error or last attempt, throw it out of the loop
-            throw error; 
+    // 1. 🛑 FIX: Force the AI to read your 59 rules by "priming" it.
+    // This is stateless but gives the AI the rules for every request.
+    const contents = [
+        { 
+            role: "user", 
+            parts: [{ text: brandPersona }] 
+        },
+        {
+            role: "model",
+            parts: [{ text: "Understood. I am Blu, the I AM XIS assistant. I will follow all rules." }]
+        },
+        // This is the new user prompt
+        {
+            role: "user",
+            parts: [{ text: finalPrompt }]
         }
+    ];
+
+    const MAX_RETRIES = 3; 
+    let result = null; 
+    let apiError = null;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      	try { 
+      	  	console.log(`Attempting Gemini API call (Attempt ${attempt}/${MAX_RETRIES})...`);
+      	  	
+      	  	// 2. 🛑 FIX: Call generateContent with the correct contents array
+      	  	result = await ai.models.generateContent({
+      	  	  	model: "gemini-2.5-flash-lite", 
+      	  	  	contents: contents                 
+      	  	});
+      	  	
+      	  	apiError = null; 
+      	  	break; 
+
+      	} catch (error) {
+      	  	apiError = error; 
+      	  	console.warn(`Gemini API call failed on attempt ${attempt}: ${error.message}`);
+      	  	if (error.message.includes('503') && attempt < MAX_RETRIES) {
+      	  	  	await new Promise(resolve => setTimeout(resolve, 3000));
+      	  	} else {
+      	  	  	throw error; 
+      	  	}
+      	}
     }
-}
 
-// Check if we exited the loop due to a persistent error
-if (apiError) {
-    console.error("Failed to get a response after all retries.");
-    throw apiError; // Throw the last recorded API error
-}
-
-// 🛑 THE FINAL FORMATTING FIX 🛑
-// Replace the placeholder from Rule 35 with actual double newlines.
-let finalResponseText = response.text.replace(/---BREAK---/g, '\n\n');
-
-// The rest of your success return block continues here:
-return {
-    statusCode: 200,
-    // Return the processed variable, which now contains line breaks.
-    body: JSON.stringify({ response: finalResponseText }), 
-    headers: {
-        'Access-Control-Allow-Origin': '*', 
+    if (apiError) {
+      	console.error("Failed to get a response after all retries.");
+      	throw apiError;
     }
-};
+
+    // 3. 🛑 FIX: Check for safety blocks/empty responses
+    if (!result || !result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+        console.error("API call succeeded but returned an invalid object (Safety Block).", JSON.stringify(result, null, 2));
+        const errorText = "I'm sorry, I am unable to respond to that prompt. Please try rephrasing.";
+        
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ response: errorText }),
+            headers: { 'Access-Control-Allow-Origin': '*' }
+        };
+    }
+
+    // 4. 🛑 FIX: Get the response text from the correct location
+    const rawResponseText = result.candidates[0].content.parts[0].text; 
+
+    // 5. Process the text for display
+    let finalResponseText = rawResponseText.replace(/---BREAK---/g, '\n\n');
+
+    // 6. 🛑 STATELESS: Return the simple response object
+    return {
+      	statusCode: 200,
+      	body: JSON.stringify({ 
+            response: finalResponseText
+        }), 
+      	headers: {
+      	  	'Access-Control-Allow-Origin': '*', 
+      	}
+    };
 
 // --- End of NEW API Call Logic (REPLACEMENT) ---
 
