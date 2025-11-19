@@ -120,7 +120,7 @@ exports.handler = async (event) => {
 WhatsApp, call, or SMS at +234 708 005 4074, or by email at hello@iamxis.studio
  (include your order number and name for quick response).
  - if a user asks about what happened to our old link, iamxis.com.ng, reply smartly that 
- We’re currently using iamxis.studio as a temporary home while we work on the old link, iamxis.com.ng. Everything else stays the same — you’ll still find all your favorite items and edits here.
+ We’re currently using iamxis.studio as a temporary home while we work on the old link, iamxis.com.ng. Everything else stays the same. You’ll still find all your favorite items and edits here.
     
     
     --- 🚨 STRICT RULES FOR BLU (FINAL COMMANDS) 🚨 ---
